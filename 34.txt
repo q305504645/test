@@ -1,0 +1,571 @@
+// =======================READ BEFORE PLAY==========================
+// Sometimes the enemy tank twitches when evading a missile because
+// it switches between the "evade" and "chase" in a way that after
+// evading an incoming missile the red tank chases the blue tank but
+// in line with the incoming missile again; then it evades, chases,
+// evades, chases... until the missile passes behind the red tank or
+// it gets hit by the missile. 
+
+// Besides, you have to evade missiles without fire one until the
+// number of red tanks shrinks to 1 or 2. By then, if you want to 
+// see how powerfull the enemy AI for evading a missile, make sure
+// no other enemy wrecks around it influencing its performance.
+
+
+var tilemap   = [
+  "                    ",
+  "            r       ",
+  "                  r ",
+  "                    ",
+  "    r               ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "          B         ",
+  "                    ",
+  "                    ",
+  "                    ",
+  "                    "];
+
+
+function detectMissile(tank) {
+  var threat = false;
+  var nearest_missile = new Missile();
+  var min_distance = 1000;
+  for (var i = 0; i < tanks.length; i++) {
+    for (var j = 0; j < tanks[i].missiles.length; j++) {
+      var m = tanks[i].missiles[j];
+      var vec = p5.Vector.sub(tank.position, m.position);
+      var angle = m.angle - vec.heading();
+      var y = vec.mag() * cos(angle);
+      var x = vec.mag() * sin(angle);
+      //print(j, x)
+      if (y > 0 && m.fire === 1) {
+        if (((x >= 0) && (x < 15)) || ((x < 0) && (x > -15))) {
+          threat = true;
+          // print("dist: ", dist(tank.position.x, tank.position.y,
+          //       m.position.x, m.position.y))
+          if (dist(tank.position.x, tank.position.y,
+                m.position.x, m.position.y) < min_distance) {
+            nearest_missile = m;
+            min_distance = dist(tank.position.x, tank.position.y, 
+                            m.position.x, m.position.y);
+          }
+        }
+      }
+    }
+  }
+  //print(nearest_missile.position.x, nearest_missile.position.y);
+  return [threat, nearest_missile];
+}
+
+
+class EvadeState {
+  constructor() {
+    //this.step = p5.Vector(-cos(me.angle), -sin(me.angle));
+  }
+  
+  execute(me) {
+    // var threat = false;
+    // for (var i = 0; i < 1; i++) {
+    //   for (var j = 0; j < tanks[i].missiles.length; j++) {
+    //     var m = tanks[0].missiles[j];
+    //     var vec = p5.Vector.sub(me.position, m.position);
+    //     var angle = m.angle - vec.heading();
+    //     var y = vec.mag() * cos(angle);
+    //     var x = vec.mag() * sin(angle);
+    //     var angle_diff = abs(((me.angle - m.angle)*180/PI)%360);
+    //     //print(me.angle*180/PI)
+    //     if (y > 0 && m.fire === 1) {
+    //       if (((x >= 0) && (x < 15)) || ((x < 0) && (x > -15))) {
+    //         threat = true;
+    //         if (angle_diff < 30)
+    //           me.angle += 0.04
+    //         else if (angle_diff > 330)
+    //           me.angle -= 0.04
+    //       }
+    //       if ((x > 0) && (x < 15)) {  // move backword
+    //         var step = new p5.Vector(-cos(me.angle), -sin(me.angle));
+    //         me.position.add(step);
+    //       }
+    //       else if ((x <= 0) && (x > -15)) {  // move forward
+    //         var step2 = new p5.Vector(cos(me.angle), sin(me.angle));
+    //         me.position.add(step2);
+    //       }
+    //     }
+    //   }
+      
+    var threat = detectMissile(me)[0];
+    var m = detectMissile(me)[1];
+    var vec = p5.Vector.sub(me.position, m.position);
+    var angle = m.angle - vec.heading();
+    var y = vec.mag() * cos(angle);
+    var x = vec.mag() * sin(angle);
+    //var angle_diff = abs(((me.angle - m.angle)*180/PI)%360);
+    var angle_diff = angleDiff(me.angle, m.angle);
+    if (threat === true) { 
+      //print(m.angle*180/PI);
+      //print(m.position.x, m.position.y)
+      //print(angle_diff)
+      if ((angle_diff > 0 && angle_diff < 30) || 
+          (angle_diff > -180 && angle_diff < -150)) {
+        me.angle += 0.04
+        //print("plus angle")
+      }
+      else if ((angle_diff <= 0 && angle_diff > -30) || 
+          (angle_diff <= 180 && angle_diff > 150)) {
+        me.angle -= 0.04
+        //print("minus angle")
+      }
+      else if ((x > 0) && (x < 15)) {  // move backword
+        if (angleDiff(me.angle, vec.heading()) >= 0) {
+          me.move(-1);
+          //print(1)
+        }
+        else {
+          me.move(1);
+          //print(2)
+        }
+        
+      }
+      else if ((x <= 0) && (x > -15)) {  // move forward
+        if (angleDiff(me.angle, vec.heading()) >= 30) {
+          me.move(1);
+          //print(3)
+        }
+        else {
+          me.move(-1);
+          //print(4)
+        }
+      }
+    }
+
+    else if (dist(me.position.x, me.position.y, 
+                  bluetank.position.x, bluetank.position.y) > 180)
+      me.changeState(1);
+    else
+      me.changeState(2);
+  }
+    
+    // if (!threat) {
+    //   if (dist(me.position.x, me.position.y, 
+    //       bluetank.position.x, bluetank.position.y) > 180)
+    //     me.changeState(1);
+    //   else
+    //     me.changeState(2);
+    // }
+}
+
+class ChaseState {
+  constructor() {
+    //this.step = p5.Vector(-cos(me.angle), -sin(me.angle));
+  }
+  
+  execute(me) {
+    var vec = p5.Vector.sub(bluetank.position, me.position);
+    var angle_diff = ((me.angle - vec.heading())*180/PI)%360;
+    if ((angle_diff < -3 && angle_diff >= -180) || 
+        (angle_diff < 357 && angle_diff >= 180))
+      me.angle += 0.04;
+    else if ((angle_diff > -357 && angle_diff < -180) || 
+        (angle_diff > 3 && angle_diff < 180))
+      me.angle -= 0.04;
+    // else if ((angle_diff <= 3 && angle_diff > 0) || 
+    //          (angle_diff >= -3 && angle_diff < 0) || 
+    //          (angle_diff >= 357 && angle_diff < 360) ||
+    //          (angle_diff <= -357 && angle_diff > -360)) {
+    else
+      me.move(1);
+    
+    
+    if (detectMissile(me)[0])
+      me.changeState(0);
+    else if (dist(me.position.x, me.position.y, 
+                  bluetank.position.x, bluetank.position.y) <= 180)
+      me.changeState(2);
+  }
+}
+
+class FireState {
+  constructor() {
+    
+  }
+  
+  execute(me) {
+    var vec = p5.Vector.sub(bluetank.position, me.position);
+    var angle_diff = ((me.angle - vec.heading())*180/PI)%360;
+    if ((angle_diff < -3 && angle_diff >= -180) || 
+        (angle_diff < 357 && angle_diff >= 180))
+      me.angle += 0.04;
+    else if ((angle_diff > -357 && angle_diff < -180) || 
+        (angle_diff > 3 && angle_diff < 180))
+      me.angle -= 0.04;
+    // else if ((angle_diff <= 3 && angle_diff >= 0) || 
+    //          (angle_diff >= -3 && angle_diff < 0) || 
+    //          (angle_diff >= 357 && angle_diff < 360) ||
+    //          (angle_diff <= -357 && angle_diff > -360))
+    else
+      fireMissile(me)
+    
+    
+    if (detectMissile(me)[0])
+      me.changeState(0);
+    else if (dist(me.position.x, me.position.y, 
+                  bluetank.position.x, bluetank.position.y) > 180)
+      me.changeState(1);    
+  }
+}
+    
+class RedTank {
+  constructor(x, y) {
+    this.position = new p5.Vector(x, y);
+    this.velocity = new p5.Vector(0, 0);
+    this.angle = PI/2;
+    this.dead = 0;
+    this.missiles = [new Missile(0), new Missile(0)];
+    this.missileIndex = 0;
+    this.fireFrameCount = 0;
+    this.drawFrameCount = 0;
+    //this.state = [new EvadeState()]
+    this.state = [new EvadeState(), new ChaseState(), new FireState()];
+    this.currState = 0;
+  }
+  
+  changeState(x) {
+    this.currState = x;
+  }
+  
+  draw() {
+    push();
+    translate(this.position.x+10, this.position.y+10);
+    rotate(this.angle);
+    
+    fill(0)
+    rect(-12, -11, 24, 6, 1.5);
+    rect(-12, 5, 24, 6, 1.5);
+    
+    if (this.dead === 0) 
+      fill(231, 70, 60);
+    else
+      fill(155, 155, 155);
+    rect(-10, -9, 20, 18, 2);
+    rect(-4, -4.5, 11, 9, 2);
+    rect(0, -2, 16, 4);
+    rect(14, -3, 4, 6, 1);
+    
+//    if (this.dead) {
+      // var r = 7;
+      // var c = 150;
+      // var x = 0;
+      // var y = 0;
+//      for (var j = 0; j < 5; j++) {
+//        if (this.drawFrameCount < (frameCount - 60) || //this.drawFrameCount === 0) {
+//          this.drawFrameCount = frameCount;
+//          var c = random(100, 200);
+//          var r = random(5, 10);
+//          var x = random(-7, 7);
+//          var y = random(-7, 7);
+//        }
+//        fill(c, c, c);
+//        ellipse(x, y, r, r);
+//      }
+//    }
+        
+    pop();
+  }
+  
+  move(mag) {
+    var step = new p5.Vector(mag*cos(this.angle), mag*sin(this.angle));
+    //var neg_step = new p5.Vector(-mag*cos(this.angle), -mag*sin(this.angle));
+    //this.position.add(step);
+    
+    this.position.add(step);
+    var collision = false;
+    for (var i = 0; i < tanks.length; i++) {
+      // if ((this === tanks[i]) && checkCollision(this, tanks[i])) {
+      //    print("yes")
+      // }
+      if ((this !== tanks[i]) && checkCollision(this, tanks[i])) {
+        this.position.sub(step);
+      }
+    }
+    // if (!collision) {
+    //   //print("no collision")
+    //   this.position.add(step);
+    // }
+  }
+}
+
+class BlueTank {
+  constructor(x, y, s=1) {
+    this.position = new p5.Vector(x, y);
+    this.velocity = new p5.Vector(0, 0);
+    this.angle = -PI/2;
+    this.missiles = [new Missile(1), new Missile(1)];
+    this.missileIndex = 0;
+    this.fireFrameCount = 0;
+    this.dead = 0;
+    this.s = s;
+  }
+  
+  draw() {
+    push();
+    translate(this.position.x+10, this.position.y+10);
+    rotate(this.angle);
+    scale(this.s, this.s);  
+    
+    fill(0)
+    rect(-12, -11, 24, 6, 1.5);
+    rect(-12, 5, 24, 6, 1.5);
+    
+    fill(52, 152, 219);
+    rect(-10, -9, 20, 18, 2);
+    rect(-4, -4.5, 11, 9, 2);
+    rect(0, -2, 16, 4);
+    rect(14, -3, 4, 6, 1);
+    pop();
+    
+    this.move();
+  }
+  
+  move() {
+    this.velocity.set(0, 0);
+    if (keyArray[LEFT_ARROW] === 1 || keyArray[65] === 1)
+      bluetank.angle -= 0.04;
+    if (keyArray[RIGHT_ARROW] === 1 || keyArray[68] === 1)
+      bluetank.angle += 0.04
+    if (keyArray[UP_ARROW] === 1 || keyArray[87] === 1)
+      this.velocity.set(cos(this.angle), sin(this.angle));
+    if (keyArray[DOWN_ARROW] === 1 || keyArray[83] === 1)
+      this.velocity.set(-cos(this.angle), -sin(this.angle));
+    
+
+    
+    this.position.add(this.velocity);
+    for (var i = 0; i < tanks.length; i++) {
+      if ((this !== tanks[i]) && checkCollision(this, tanks[i])) {
+        this.position.sub(this.velocity);
+      }
+    }
+    this.position.x = max(0, min(380, this.position.x));
+    this.position.y = max(0, min(380, this.position.y));
+    
+    if (keyArray[32] === 1) {
+      fireMissile(this);
+    }
+  }
+}
+
+class Missile {
+  constructor(blue = 0) {
+    this.position = new p5.Vector(200, 300);
+    this.angle = 0;
+    this.fire = 0;
+    this.blue = blue;
+  }
+  
+  draw() {
+    push();
+    translate(this.position.x+10, this.position.y+10);
+    rotate(this.angle);
+    
+    fill(0, 0, 0);
+    if (this.blue === 1)
+      fill(23, 165, 137);
+      //fill(52, 152, 219);
+    else
+      fill(255, 195, 0);
+      //fill(231, 70, 60);
+    
+    quad(-2,-2.5,-2,2.5,2,1.5,2,-1.5);
+    rect(-16, -2, 14, 4);
+    //ellipse(2, 0, 3, 3);
+    quad(-15,-4,-15,-2,-10,-2,-12,-4);
+    quad(-15,4,-15,2,-10,2,-12,4);
+    line(-14, 0, -11, 0);
+    
+    fill(0);
+    noStroke();
+    for (var j = 0; j < 5; j++) {
+      fill(255, random(0, 170), random(0, 30))
+      var r = random(2, 5);
+      ellipse(random(-26, -18), random(-2, 2), r, r);
+    }
+    
+    pop();
+    
+    this.position.x += 2*cos(this.angle);
+    this.position.y += 2*sin(this.angle);
+    
+    for (var i = 0; i < tanks.length; i++) {
+      if ((tanks[i].dead === 0) &&
+          (dist(this.position.x, this.position.y,
+                tanks[i].position.x, tanks[i].position.y) < 15)) {
+          if (i === 0)
+            gameOver = true;
+          tanks[i].dead = 1;
+          this.fire = 0;
+      }
+    }
+  }
+}
+
+var bluetank;
+var redtanks = [];
+var tanks = [];
+//var m;
+
+
+var gameStart = false;
+var gameOver = false;
+var gameWon = false;
+var keyArray = [];
+
+function keyPressed() {
+    keyArray[keyCode] = 1;
+}
+
+function keyReleased() {
+    keyArray[keyCode] = 0;
+}
+
+function angleDiff(a, b) {
+  var a = (a*180/PI)%360;
+  var b = (b*180/PI)%360;
+  if (a > 180)
+    a -= 360;
+  if (b > 180)
+    b -= 360;
+  if (a <= -180)
+    a += 360;
+  if (b <= -180)
+    b += 360;
+  var d = a - b;
+  if (d > 180)
+    d -= 360;
+  if (d <= -180)
+    d += 360;
+  return d;
+}
+
+function checkCollision(a, b) {
+  var ax1 = a.position.x; var ax2 = a.position.x+20;
+  var ay1 = a.position.y; var ay2 = a.position.y+20;
+  var bx1 = b.position.x; var bx2 = b.position.x+20;
+  var by1 = b.position.y; var by2 = b.position.y+20;
+  
+  if (((ax1 >= bx1) && (ax1 <= bx2) && (ay1 >= by1) && (ay1 <= by2)) ||
+    ((ax2 >= bx1) && (ax2 <= bx2) && (ay1 >= by1) && (ay1 <= by2)) ||
+    ((ax1 >= bx1) && (ax1 <= bx2) && (ay2 >= by1) && (ay2 <= by2)) ||
+    ((ax2 >= bx1) && (ax2 <= bx2) && (ay2 >= by1) && (ay2 <= by2)))
+      return true;
+  return false;
+}
+
+function fireMissile(tank) {
+  if (tank.fireFrameCount < (frameCount - 140) || tank.fireFrameCount === 0) {
+    tank.fireFrameCount = frameCount;
+    var m = tank.missiles[tank.missileIndex];
+    m.fire = 1;
+    m.position.x = tank.position.x+25*cos(tank.angle);
+    m.position.y = tank.position.y+25*sin(tank.angle);
+    m.angle = tank.angle;
+    tank.missileIndex++;
+    if (tank.missileIndex > 1) { 
+        tank.missileIndex = 0;
+    }
+  }
+}
+
+function initTilemap() {
+  for (var i = 0; i < tilemap.length; i++) {
+    for (var j = 0; j < tilemap[i].length; j++) {
+      switch (tilemap[i][j]) {
+          case 'r': redtanks.push(new RedTank(j*20, i*20));
+            break;
+          case 'B': bluetank = new BlueTank(j*20, i*20);
+      }
+    }
+  }
+}
+
+function mouseClicked() {
+  if ((mouseX >= 0) && (mouseX <= 400) && 
+    (mouseY >= 0) && (mouseY <= 400)) 
+    gameStart = true;
+}
+
+function setup() {
+  createCanvas(400, 400);
+  initTilemap();
+  tanks.push(bluetank);
+  tanks = concat(tanks, redtanks);
+  
+  //m = new Missile();
+}
+
+function draw() {
+  if (gameStart === false) {
+    background(218, 247, 166);
+    fill(0);
+    textSize(20);
+    text("Wellcome to Tank Battle", 100, 60);
+    textSize(15);
+    text("Control the blue tank with arrow keys", 80, 260);
+    text("to move and avoid the missile", 110, 280);
+    text("Press the space bar to fire an missile", 80, 300);
+    text("and defeat all the red tanks", 115, 320);
+    textSize(20);
+    text("Click to start the game", 105, 380);
+    
+    var bluetank_demo = new BlueTank(200, 160, 5);
+    bluetank_demo.draw();
+  }
+  else if (gameOver === true) {
+    background(150, 150, 150, 5);
+    fill(250, 190, 45);
+    textSize(40);
+    text("Game Over", 105, 160);
+    text("You are hit by a missle", 2, 260);
+  }
+  else if (gameWon === true) {
+    background(250, 190, 190, 12);
+    fill(40, 220, 140);
+    textSize(40);
+    text("Congratulations!", 60, 160);
+    textSize(30);
+    text("You defeat all the enemies", 15, 260);
+  }
+  else {
+    background(250, 190, 190);
+    var redtanks_alive = 0;
+    for (i = 0; i < redtanks.length; i++) {
+        redtanks[i].draw();
+      if (redtanks[i].dead === 0) {
+        redtanks[i].state[redtanks[i].currState].execute(redtanks[i]);
+        redtanks_alive += 1;
+        //print(redtanks[i].currState)
+      }
+    }
+    if (redtanks_alive === 0)
+      gameWon = true;
+    bluetank.draw();
+    for (i = 0; i < tanks.length; i++) 
+      for (j = 0; j < tanks[i].missiles.length; j++) {
+        if (tanks[i].missiles[j].fire === 1)
+          tanks[i].missiles[j].draw();
+      }
+    
+    
+    //m.draw();
+    
+    //print(tanks[0].missiles[0].position);
+  }
+}
